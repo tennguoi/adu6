@@ -55,7 +55,7 @@ class FaceRecognitionSystem:
             embedding = self.facenet(face_tensor)
         return embedding.cpu().numpy()
 
-    def recognize_face(self, face_embedding, cosine_threshold=0.3, euclidean_threshold=1.1, ensemble_weight=0.5):
+    def recognize_face(self, face_embedding, cosine_threshold=0.4, euclidean_threshold=0.9, ensemble_weight=0.5):
         if not self.known_embeddings:
             return "Unknown", 0
 
@@ -71,11 +71,11 @@ class FaceRecognitionSystem:
 
             # Tính toán Cosine Similarity
             cosine_score = cosine_similarity(normalized_input.reshape(1, -1), 
-                                             normalized_stored.reshape(1, -1))[0][0]
+                                            normalized_stored.reshape(1, -1))[0][0]
             
             # Tính toán Euclidean Distance (càng thấp càng tốt)
             euclidean_distance = euclidean_distances(normalized_input.reshape(1, -1), 
-                                                     normalized_stored.reshape(1, -1))[0][0]
+                                                    normalized_stored.reshape(1, -1))[0][0]
             
             # Kết hợp điểm số (ensemble)
             ensemble_score = (ensemble_weight * cosine_score + 
@@ -118,7 +118,7 @@ class FaceRecognitionSystem:
             # Vẽ kết quả
             color = (0, 255, 0) if "Unknown" not in name else (0, 0, 255)
             cv2.rectangle(frame, (bbox[0], bbox[1]),
-                          (bbox[2], bbox[3]), color, 2)
+                        (bbox[2], bbox[3]), color, 2)
             cv2.putText(frame, f"{name} ({confidence:.1f}%)",
                         (bbox[0], bbox[1] - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)

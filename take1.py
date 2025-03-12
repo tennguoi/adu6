@@ -51,10 +51,10 @@ def main():
     save_name(face_id, face_name, names_json_filename)
     print('\n[INFO] Initializing face capture. Look at the camera and wait...')
 
-    count = 0
-    valid_count = 0
+    count = 0 #Số lần tìm thấy khuôn mặt
+    valid_count = 0 #Số ảnh hợp lệ 
 
-    while True:
+    while True: #Vòng lặp đọc dữ liệu liên tục 
         ret, frame = cam.read()
         if not ret:
             continue
@@ -64,7 +64,7 @@ def main():
         
         if boxes is not None:
             for box in boxes:
-                x1, y1, x2, y2 = map(int, box.tolist())
+                x1, y1, x2, y2 = map(int, box.tolist())#Chuyển đổi tọa độ khuôn mặt 
                 
                 # Thêm margin
                 margin = int(min(x2-x1, y2-y1) * 0.1)
