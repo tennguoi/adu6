@@ -85,15 +85,22 @@ class FaceRecognitionSystem:
                 best_score = ensemble_score
                 best_name = self.names.get(str(user_id), "Unknown")
 
-        # Kiểm tra ngưỡng với điểm số ensemble
-        if best_score > cosine_threshold:
-            return best_name, best_score * 100
+        # # Kiểm tra ngưỡng với điểm số ensemble
+        # if best_score > cosine_threshold:
+        #     return best_name, best_score * 100
         
-        # Kiểm tra lại nếu không chắc chắn
-        if best_score > 0.2:  # Ngưỡng thấp hơn để kiểm tra
-            return f"Possible {best_name}", best_score * 100
+        # # Kiểm tra lại nếu không chắc chắn
+        # if best_score > 0.2:  # Ngưỡng thấp hơn để kiểm tra
+        #     return f"Possible {best_name}", best_score * 100
         
-        return "Unknown", best_score * 100
+        # return "Unknown", best_score * 100 
+        confidence_score = best_score * 100
+
+    # Kiểm tra ngưỡng
+        if confidence_score >= 51.9:
+            return best_name, confidence_score
+    
+        return "Unknown", confidence_score
 
     def detect_and_recognize(self, frame):
         # Phát hiện khuôn mặt

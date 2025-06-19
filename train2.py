@@ -10,29 +10,9 @@ from tqdm import tqdm
 from sklearn.decomposition import PCA
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import normalize
+import matplotlib.pyplot as plt  # Thêm import matplotlib
 
 def create_augmentation_pipeline() -> A.Compose:
-    """
-    Create an augmentation pipeline using Albumentations.
-
-    The pipeline consists of the following steps:
-
-    1. Resize the image to 160x160.
-    2. Apply one of the following augmentations at random:
-
-        a. Random brightness and contrast (with 50% probability).
-        b. Hue, saturation, and value shift (with 50% probability).
-    3. Apply one of the following augmentations at random:
-
-        a. Motion blur (with 50% probability).
-        b. Gaussian noise (with 50% probability).
-    4. Apply an affine transformation (with 50% probability) to rotate, scale, and translate the image.
-    5. Flip the image horizontally (with 50% probability).
-    6. Normalize the image values to be between -1 and 1.
-
-    Returns:
-        A.Compose: The augmentation pipeline.
-    """
     return A.Compose([
         A.Resize(160, 160),
         A.OneOf([
@@ -48,7 +28,6 @@ def create_augmentation_pipeline() -> A.Compose:
         A.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ToTensorV2()
     ])
-
 
 def load_and_preprocess_images(image_paths, transform, batch_size=32, device='cpu'):
     """Load and preprocess images in batches using Albumentations"""
@@ -110,15 +89,15 @@ def normalize_embeddings(embeddings_dict):
 def main():
     print("\n[INFO] Starting optimized face embedding generation...")
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    facenet = InceptionResnetV1(pretrained='vggface2').eval().to(device)
+    Device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    facenet = InceptionResnetV1(pretrained='vggface2').eval().to(Device)
 
-    images_path = './images/'
+    images_path = './Images/'
     batch_size = 32
     n_augmentations = 5
 
     image_files = [os.path.join(images_path, f) for f in os.listdir(images_path) 
-                if f.endswith('.jpg')]
+                   if f.endswith('.jpg')]
     print(f"[INFO] Found {len(image_files)} images")
 
     # Create augmentation pipeline
@@ -126,6 +105,9 @@ def main():
     
     embeddings_dict = {}
     temp_embeddings = {}
+    
+    # Biến để theo dõi số embeddings mỗi người dùng
+    user_embedding_counts = {}
 
     for i in tqdm(range(0, len(image_files), batch_size)):
         batch_files = image_files[i:i + batch_size]
@@ -147,7 +129,7 @@ def main():
         if len(image_tensors) == 0:
             continue
 
-        image_tensors = torch.cat(image_tensors).to(device)
+        image_tensors = torch.cat(image_tensors).to(Device)
 
         with torch.no_grad():
             embeddings = facenet(image_tensors).cpu().numpy()
@@ -156,7 +138,9 @@ def main():
             user_id = int(os.path.split(img_path)[-1].split('-')[1])
             if user_id not in temp_embeddings:
                 temp_embeddings[user_id] = []
+                user_embedding_counts[user_id] = 0
             temp_embeddings[user_id].append(embeddings[idx])
+            user_embedding_counts[user_id] += 1
 
     # Process embeddings for each user
     for user_id, user_embeddings in temp_embeddings.items():
@@ -175,14 +159,91 @@ def main():
     data = np.load('face_embeddings.npz', allow_pickle=True)
     embeddings = data['embeddings'].item()  # 'item()' vì file lưu dạng dictionary
 
-# Xem danh sách user_id
+    # Xem danh sách user_id
     print("User IDs:", embeddings.keys())
 
-# Kiểm tra embedding của một user cụ thể
+    # Kiểm tra embedding của một user cụ thể
+    # (sử dụng user_id cuối cùng từ vòng lặp, hoặc thay đổi theo ý bạn)
     print(f"Embedding for User {user_id}:", embeddings[user_id])
 
-# Kiểm tra kích thước vector
+    # Kiểm tra kích thước vector
     print(f"Shape of Embedding for User {user_id}: {embeddings[user_id].shape}")
+
+    # ====== PHẦN HIỂN THỊ KẾT QUẢ VỚI MATPLOTLIB ======
+    
+    # 1. Biểu đồ số lượng embeddings cho mỗi người dùng
+    plt.figure(figsize=(10, 6))
+    user_ids = list(user_embedding_counts.keys())
+    user_ids.sort()  # Sắp xếp ID người dùng để biểu đồ dễ đọc hơn
+    
+    counts = [user_embedding_counts[uid] for uid in user_ids]
+    
+    plt.bar(range(len(user_ids)), counts, color='skyblue', edgecolor='navy')
+    plt.xticks(range(len(user_ids)), [str(uid) for uid in user_ids], rotation=90 if len(user_ids) > 10 else 0)
+    plt.xlabel('User ID')
+    plt.ylabel('Số lượng Embeddings')
+    plt.title('Số lượng Embeddings mỗi người dùng')
+    plt.tight_layout()
+    plt.savefig('embedding_counts.png')
+    plt.show()
+    
+    # 2. Biểu đồ phân bố số lượng embeddings
+    plt.figure(figsize=(8, 6))
+    plt.hist(counts, bins=10, color='lightgreen', edgecolor='darkgreen')
+    plt.xlabel('Số lượng Embeddings')
+    plt.ylabel('Số lượng người dùng')
+    plt.title('Phân bố số lượng Embeddings')
+    plt.grid(True, alpha=0.3)
+    plt.savefig('embedding_distribution.png')
+    plt.show()
+    
+    # 3. Biểu đồ sự khác biệt giữa các embeddings (PCA)
+    user_ids = list(embeddings.keys())
+    embedding_list = np.array([embeddings[uid] for uid in user_ids])
+
+    # Sử dụng PCA để giảm các embeddings xuống 2 chiều để có thể plot
+    pca_plot = PCA(n_components=2)
+    embedding_2d = pca_plot.fit_transform(embedding_list)
+
+    plt.figure(figsize=(10, 8))
+    plt.scatter(embedding_2d[:, 0], embedding_2d[:, 1], c='blue', edgecolors='k', s=100, alpha=0.7)
+
+    # Gán nhãn cho từng điểm
+    for i, uid in enumerate(user_ids):
+        plt.annotate(str(uid), (embedding_2d[i, 0], embedding_2d[i, 1]), 
+                     fontsize=9, fontweight='bold')
+
+    plt.title("Face Embeddings PCA Projection")
+    plt.xlabel("Principal Component 1")
+    plt.ylabel("Principal Component 2")
+    plt.grid(True, alpha=0.3)
+    plt.savefig('embedding_pca.png')
+    plt.show()
+    
+    # 4. Biểu đồ heatmap của ma trận tương đồng (cosine similarity)
+    from sklearn.metrics.pairwise import cosine_similarity
+    similarity_matrix = cosine_similarity(embedding_list)
+    
+    plt.figure(figsize=(10, 8))
+    plt.imshow(similarity_matrix, cmap='viridis', vmin=0, vmax=1)
+    plt.colorbar(label='Cosine Similarity')
+    plt.title('Similarity Matrix of Face Embeddings')
+    
+    # Thêm nhãn cho các trục
+    tick_positions = np.arange(len(user_ids))
+    plt.xticks(tick_positions, [str(uid) for uid in user_ids], rotation=90)
+    plt.yticks(tick_positions, [str(uid) for uid in user_ids])
+    
+    # Thêm chú thích giá trị cho từng ô
+    for i in range(len(user_ids)):
+        for j in range(len(user_ids)):
+            plt.text(j, i, f'{similarity_matrix[i, j]:.2f}', 
+                    ha='center', va='center', color='white' if similarity_matrix[i, j] < 0.7 else 'black',
+                    fontsize=8)
+    
+    plt.tight_layout()
+    plt.savefig('embedding_similarity.png')
+    plt.show()
 
 if __name__ == "__main__":
     main()
