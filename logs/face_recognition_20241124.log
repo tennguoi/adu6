@@ -1,0 +1,3 @@
+2024-11-24 09:59:59,355 - FaceRecognition - INFO - Using device: cpu
+2024-11-24 09:59:59,703 - FaceRecognition - INFO - Loaded 1 embeddings
+2024-11-24 09:59:59,704 - FaceRecognition - INFO - Loaded 1 names
